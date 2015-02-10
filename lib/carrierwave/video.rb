@@ -100,9 +100,9 @@ module CarrierWave
           movie.transcode(result_path, "-i #{audio_path} ")
 
           File.rename result_path, current_path
-          File.rm ouput_path
-          File.rm avi_path
-          File.rm audio_path
+          # File.rm ouput_path
+          # File.rm avi_path
+          # File.rm audio_path
         end
       end
 
