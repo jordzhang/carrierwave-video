@@ -71,6 +71,53 @@ module CarrierWave
       end
     end
 
+    def video_replacement(format, opts={})
+      # move upload to local cache
+      cache_stored_file! if !cached?
+
+      if opts[:replacement].present?
+        replacement_path = nil
+        if opts[:replacement].kind_of? Symbol
+          replacement_path = model.send(opts[:replacement]).current_path
+        elsif opts[:replacement].kind_of? String
+          replacement_path = opts[:replacement]
+        end
+
+        if replacement_path.present?
+          # split audio to mp3
+          audio_path = File.join(File.dirname(current_path), "tmpfile.mp3")
+          file = ::FFMPEG::Movie.new(current_path)
+          file.transcode(audio_path, "-vn")
+
+          avi_path = File.join(File.dirname(current_path), "tmpfile.avi")
+          file.transcode(avi_path, "-an -vcodec libx264")
+
+          ouput_path = File.join(File.dirname(current_path), "replacement_tmp.avi")
+          system "#{CarrierWave::Video.replacement_binary} -i #{avi_path} -b #{replacement_path} -o #{ouput_path}"
+          result_path = File.join(File.dirname(current_path), "tmpfile.mp4")
+
+          movie = ::FFMPEG::Movie.new(ouput_path)
+          movie.transcode(result_path, "-i #{audio_path} ")
+
+          File.rename result_path, current_path
+          File.rm ouput_path
+          File.rm avi_path
+          File.rm audio_path
+        end
+      end
+
+
+    end
+    def self.replacement_binary=(bin)
+      @replacement_binary = bin
+    end
+
+    # Get the path to the ffmpeg binary, defaulting to 'ffmpeg'
+    #
+    # @return [String] the path to the ffmpeg binary
+    def self.replacement_binary
+      @replacement_binary || 'chbg'
+    end
     private
       def with_trancoding_callbacks(&block)
         callbacks = @options.callbacks
